@@ -37,6 +37,52 @@ export const GetTemplateReadinessInputSchema = z.object({
   template_id: z.string().min(1).describe("Template ID to analyze for transactional readiness"),
 });
 
+// ─── Write schemas ──────────────────────────────────────────────────────────
+
+const WriteApprovalSchema = z.object({
+  approval_token: z
+    .string()
+    .min(1)
+    .describe(
+      "Manual runtime approval token for write operations. Must match SENDGRID_WRITE_APPROVAL_TOKEN when writes are enabled.",
+    ),
+});
+
+export const CreateTemplateInputSchema = WriteApprovalSchema.extend({
+  name: z.string().min(1).max(100).describe("Name for the new template"),
+  generation: z
+    .enum(["dynamic", "legacy"])
+    .optional()
+    .default("dynamic")
+    .describe("Template generation type (use 'dynamic' for Handlebars-based templates)"),
+});
+
+export const ActivateTemplateVersionInputSchema = WriteApprovalSchema.extend({
+  template_id: z.string().min(1).describe("SendGrid template ID"),
+  version_id: z.string().min(1).describe("Version ID to activate"),
+});
+
+export const CreateTemplateVersionInputSchema = WriteApprovalSchema.extend({
+  template_id: z.string().min(1).describe("Template ID to add a version to"),
+  name: z.string().min(1).max(100).describe("Name for the new version"),
+  subject: z.string().optional().describe("Email subject line (can include Handlebars variables)"),
+  html_content: z.string().optional().describe("HTML body (can include Handlebars variables)"),
+  plain_content: z.string().optional().describe("Plain-text body; leave empty to auto-generate"),
+  generate_plain_content: z
+    .boolean()
+    .optional()
+    .default(true)
+    .describe("Auto-generate plain text from HTML content"),
+  active: z
+    .number()
+    .int()
+    .min(0)
+    .max(1)
+    .optional()
+    .default(0)
+    .describe("Set to 1 to immediately activate this version"),
+});
+
 export interface TemplateVersion {
   id: string;
   template_id: string;

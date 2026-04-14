@@ -5,6 +5,7 @@
  */
 
 import { getSendGridClient } from "../../client/sendgrid-client.js";
+import { getConfig } from "../../config/index.js";
 import { SendGridApiError } from "../../utils/errors.js";
 import type { z } from "zod";
 import type {
@@ -60,6 +61,7 @@ export interface TroubleshootResult {
 
 export class ActivityService {
   private readonly client = getSendGridClient();
+  private readonly activityTimeoutMs = getConfig().sendgrid.activityTimeoutMs;
 
   async searchEmailActivity(input: SearchInput): Promise<{
     messages: ActivityMessage[];
@@ -74,7 +76,7 @@ export class ActivityService {
     if (input.page_token) params["page_token"] = input.page_token;
 
     try {
-      const res = await this.client.get<ActivityResponse>("/messages", params);
+      const res = await this.client.get<ActivityResponse>("/messages", params, this.activityTimeoutMs);
       const messages = res.messages ?? [];
       const nextPageToken = res._metadata?.next
         ? new URL("http://x?" + res._metadata.next.split("?")[1]).searchParams.get("page_token") ?? undefined
@@ -108,6 +110,8 @@ export class ActivityService {
     try {
       const msg = await this.client.get<MessageDetail>(
         `/messages/${encodeURIComponent(input.message_id)}`,
+        undefined,
+        this.activityTimeoutMs,
       );
       return { message: msg };
     } catch (err) {

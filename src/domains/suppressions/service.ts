@@ -5,10 +5,13 @@
 
 import { getSendGridClient } from "../../client/sendgrid-client.js";
 import { buildOffsetParams } from "../../utils/pagination.js";
+import { assertWriteApproved } from "../../utils/policy.js";
 import type { z } from "zod";
 import type {
   ListSuppressionsInputSchema,
   LookupRecipientSuppressionsInputSchema,
+  DeleteSuppressionInputSchema,
+  AddGlobalUnsubscribeInputSchema,
   SuppressionEntry,
   SuppressionsOverview,
   RecipientSuppressions,
@@ -16,6 +19,8 @@ import type {
 
 type ListInput = z.infer<typeof ListSuppressionsInputSchema>;
 type LookupInput = z.infer<typeof LookupRecipientSuppressionsInputSchema>;
+type DeleteInput = z.infer<typeof DeleteSuppressionInputSchema>;
+type AddUnsubscribeInput = z.infer<typeof AddGlobalUnsubscribeInputSchema>;
 
 export class SuppressionsService {
   private readonly client = getSendGridClient();
@@ -149,6 +154,40 @@ export class SuppressionsService {
       suppression_reason,
       recommended_action: recommended.join(" "),
     };
+  }
+
+  // ─── Write operations (require approval token) ────────────────────────────
+
+  async deleteBounce(input: DeleteInput): Promise<void> {
+    assertWriteApproved("sendgrid_delete_bounce", input.approval_token);
+    await this.client.request({ method: "DELETE", path: `/suppression/bounces/${encodeURIComponent(input.email)}`, noRetry: false });
+  }
+
+  async deleteBlock(input: DeleteInput): Promise<void> {
+    assertWriteApproved("sendgrid_delete_block", input.approval_token);
+    await this.client.request({ method: "DELETE", path: `/suppression/blocks/${encodeURIComponent(input.email)}`, noRetry: false });
+  }
+
+  async deleteInvalidEmail(input: DeleteInput): Promise<void> {
+    assertWriteApproved("sendgrid_delete_invalid_email", input.approval_token);
+    await this.client.request({ method: "DELETE", path: `/suppression/invalid_emails/${encodeURIComponent(input.email)}`, noRetry: false });
+  }
+
+  async deleteSpamReport(input: DeleteInput): Promise<void> {
+    assertWriteApproved("sendgrid_delete_spam_report", input.approval_token);
+    await this.client.request({ method: "DELETE", path: `/suppression/spam_reports/${encodeURIComponent(input.email)}`, noRetry: false });
+  }
+
+  async deleteGlobalUnsubscribe(input: DeleteInput): Promise<void> {
+    assertWriteApproved("sendgrid_delete_global_unsubscribe", input.approval_token);
+    await this.client.request({ method: "DELETE", path: `/asm/suppressions/global/${encodeURIComponent(input.email)}`, noRetry: false });
+  }
+
+  async addGlobalUnsubscribes(input: AddUnsubscribeInput): Promise<{ recipient_emails: string[] }> {
+    assertWriteApproved("sendgrid_add_global_unsubscribes", input.approval_token);
+    return this.client.post<{ recipient_emails: string[] }>("/asm/suppressions/global", {
+      recipient_emails: input.emails,
+    });
   }
 
   private buildParams(input: ListInput): Record<string, unknown> {

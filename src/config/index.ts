@@ -13,6 +13,9 @@ export interface SendGridConfig {
   readonly baseUrl: string;
   readonly region: SendGridRegion;
   readonly timeoutMs: number;
+  /** Extended timeout for slow endpoints (e.g. Email Activity search). */
+  readonly activityTimeoutMs: number;
+  readonly maxConcurrency: number;
   readonly defaultPageSize: number;
   readonly maxPageSize: number;
   readonly readOnly: boolean;
@@ -132,6 +135,8 @@ export function loadConfig(): Config {
       baseUrl,
       region,
       timeoutMs: parseInteger(process.env["SENDGRID_TIMEOUT_MS"], 30_000),
+      activityTimeoutMs: parseInteger(process.env["SENDGRID_ACTIVITY_TIMEOUT_MS"], 60_000),
+      maxConcurrency: parseInteger(process.env["SENDGRID_MAX_CONCURRENCY"], 10),
       defaultPageSize: Math.min(defaultPageSize, maxPageSize),
       maxPageSize: Math.min(maxPageSize, 500),
       readOnly,

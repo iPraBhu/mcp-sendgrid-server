@@ -12,6 +12,7 @@ import { normalizeHttpError, SendGridApiError } from "../utils/errors.js";
 import { logger } from "../utils/logger.js";
 import { withRetry, parseRetryAfter } from "../utils/retry.js";
 import { buildQueryString } from "../utils/pagination.js";
+import { Semaphore } from "../utils/concurrency.js";
 
 export type HttpMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
 
@@ -36,26 +37,39 @@ export class SendGridClient {
   private readonly baseUrl: string;
   private readonly apiKey: string;
   private readonly defaultTimeoutMs: number;
+  private readonly semaphore: Semaphore;
+  /**
+   * In-flight GET requests keyed by full URL (including query string).
+   * Concurrent requests for the same URL share one promise, avoiding duplicate API calls.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private readonly inflight = new Map<string, Promise<SendGridResponse<any>>>();
 
   constructor() {
     const config = getConfig();
     this.baseUrl = config.sendgrid.baseUrl;
     this.apiKey = config.sendgrid.apiKey;
     this.defaultTimeoutMs = config.sendgrid.timeoutMs;
+    this.semaphore = new Semaphore(config.sendgrid.maxConcurrency);
   }
 
   async request<T>(options: RequestOptions): Promise<SendGridResponse<T>> {
     const { method = "GET", path, params, body, timeoutMs, noRetry = false } = options;
     const url = `${this.baseUrl}/v3${path}${params ? buildQueryString(params) : ""}`;
 
-    const execute = () => this.executeRequest<T>(url, method, body, timeoutMs ?? this.defaultTimeoutMs);
+    // Coalesce concurrent identical GET requests — return the in-flight promise instead of firing again.
+    if (method === "GET") {
+      const existing = this.inflight.get(url);
+      if (existing) return existing as Promise<SendGridResponse<T>>;
+    }
 
-    if (noRetry) return execute();
+    const execute = () =>
+      this.semaphore.run(() => this.executeRequest<T>(url, method, body, timeoutMs ?? this.defaultTimeoutMs));
 
-    return withRetry(execute, (err) => {
+    const isRetryableFn = (err: unknown) => {
       if (err instanceof SendGridApiError) {
         const retryAfterMs: number | undefined = err.normalized.isRateLimit
-          ? (parseRetryAfter(null) ?? 2000)
+          ? (err.normalized.retryAfterMs ?? 2000)
           : undefined;
         return {
           isRetryable: err.normalized.isRetryable,
@@ -72,7 +86,18 @@ export class SendGridClient {
         return { isRetryable: true as const };
       }
       return { isRetryable: false as const };
-    });
+    };
+
+    const promise: Promise<SendGridResponse<T>> = noRetry
+      ? execute()
+      : withRetry(execute, isRetryableFn);
+
+    if (method === "GET") {
+      this.inflight.set(url, promise);
+      void promise.finally(() => this.inflight.delete(url));
+    }
+
+    return promise;
   }
 
   private async executeRequest<T>(
@@ -117,9 +142,10 @@ export class SendGridClient {
       }
 
       if (!response.ok) {
-        throw new SendGridApiError(
-          normalizeHttpError(response.status, responseBody, url),
-        );
+        const normalized = normalizeHttpError(response.status, responseBody, url);
+        const retryAfterMs = parseRetryAfter(response.headers.get("retry-after"));
+        if (retryAfterMs !== undefined) normalized.retryAfterMs = retryAfterMs;
+        throw new SendGridApiError(normalized);
       }
 
       return { data: responseBody as T, status: response.status, headers: responseHeaders };
@@ -146,9 +172,10 @@ export class SendGridClient {
 
   // --- Convenience methods ---
 
-  async get<T>(path: string, params?: Record<string, unknown>): Promise<T> {
+  async get<T>(path: string, params?: Record<string, unknown>, timeoutMs?: number): Promise<T> {
     const opts: RequestOptions = { method: "GET", path };
     if (params) opts.params = params;
+    if (timeoutMs !== undefined) opts.timeoutMs = timeoutMs;
     const res = await this.request<T>(opts);
     return res.data;
   }

@@ -10,6 +10,9 @@ import {
   ListTemplateVersionsInputSchema,
   GetTemplateVersionInputSchema,
   GetTemplateReadinessInputSchema,
+  CreateTemplateInputSchema,
+  ActivateTemplateVersionInputSchema,
+  CreateTemplateVersionInputSchema,
 } from "../../schemas/templates.js";
 import { formatError } from "../../utils/errors.js";
 import { logger } from "../../utils/logger.js";
@@ -200,6 +203,125 @@ export function registerTemplateTools(server: McpServer): void {
                         updated_at: report.active_version.updated_at,
                       }
                     : null,
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Error: ${formatError(err)}` }], isError: true };
+      }
+    },
+  );
+
+  // ─── Write tools (require approval token) ─────────────────────────────────
+
+  server.tool(
+    "sendgrid_create_template",
+    "Create a new SendGrid dynamic email template. " +
+      "Returns the new template ID to use in subsequent version creation or send operations. " +
+      "Requires SENDGRID_READ_ONLY=false, SENDGRID_WRITES_ENABLED=true, and a matching approval_token.",
+    CreateTemplateInputSchema.shape,
+    async (input) => {
+      logger.audit("sendgrid_create_template", { name: input.name, generation: input.generation });
+      try {
+        const template = await service.createTemplate(input);
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  summary: `Template "${template.name}" created with ID ${template.id}.`,
+                  id: template.id,
+                  name: template.name,
+                  generation: template.generation,
+                  next_steps: `Use sendgrid_create_template_version to add a version, then sendgrid_activate_template_version to make it active.`,
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Error: ${formatError(err)}` }], isError: true };
+      }
+    },
+  );
+
+  server.tool(
+    "sendgrid_activate_template_version",
+    "Activate a specific version of a SendGrid template, making it the version used when the template is referenced in sends. " +
+      "Only one version can be active at a time; activating a version deactivates the previously active one. " +
+      "Requires SENDGRID_READ_ONLY=false, SENDGRID_WRITES_ENABLED=true, and a matching approval_token.",
+    ActivateTemplateVersionInputSchema.shape,
+    async (input) => {
+      logger.audit("sendgrid_activate_template_version", {
+        template_id: input.template_id,
+        version_id: input.version_id,
+      });
+      try {
+        const version = await service.activateTemplateVersion(input);
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  summary: `Version "${version.name}" (${version.id}) activated for template ${input.template_id}.`,
+                  template_id: input.template_id,
+                  version_id: version.id,
+                  name: version.name,
+                  active: true,
+                  subject: version.subject,
+                  updated_at: version.updated_at,
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Error: ${formatError(err)}` }], isError: true };
+      }
+    },
+  );
+
+  server.tool(
+    "sendgrid_create_template_version",
+    "Add a new version to an existing SendGrid template. " +
+      "Set active=1 to immediately make this version the active one. " +
+      "Requires SENDGRID_READ_ONLY=false, SENDGRID_WRITES_ENABLED=true, and a matching approval_token.",
+    CreateTemplateVersionInputSchema.shape,
+    async (input) => {
+      logger.audit("sendgrid_create_template_version", {
+        template_id: input.template_id,
+        name: input.name,
+        active: input.active,
+      });
+      try {
+        const version = await service.createTemplateVersion(input);
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  summary: `Version "${version.name}" created for template ${input.template_id}.`,
+                  template_id: input.template_id,
+                  version_id: version.id,
+                  name: version.name,
+                  active: version.active === 1,
+                  subject: version.subject,
+                  updated_at: version.updated_at,
+                  next_steps:
+                    version.active !== 1
+                      ? `Use sendgrid_activate_template_version to activate this version.`
+                      : `This version is now active and will be used in sends referencing template ${input.template_id}.`,
                 },
                 null,
                 2,

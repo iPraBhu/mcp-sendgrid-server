@@ -3,15 +3,22 @@
  */
 
 import { getSendGridClient } from "../../client/sendgrid-client.js";
+import { assertWriteApproved } from "../../utils/policy.js";
 import type {
   Template,
   TemplateVersion,
   TemplateReadinessReport,
+  ListTemplatesInputSchema,
+  CreateTemplateInputSchema,
+  ActivateTemplateVersionInputSchema,
+  CreateTemplateVersionInputSchema,
 } from "../../schemas/templates.js";
-import type { ListTemplatesInputSchema } from "../../schemas/templates.js";
 import type { z } from "zod";
 
 type ListTemplatesInput = z.infer<typeof ListTemplatesInputSchema>;
+type CreateTemplateInput = z.infer<typeof CreateTemplateInputSchema>;
+type ActivateVersionInput = z.infer<typeof ActivateTemplateVersionInputSchema>;
+type CreateVersionInput = z.infer<typeof CreateTemplateVersionInputSchema>;
 
 interface TemplateListResponse {
   result: Template[];
@@ -56,6 +63,40 @@ export class TemplatesService {
   async getTemplateVersion(templateId: string, versionId: string): Promise<TemplateVersion> {
     return this.client.get<TemplateVersion>(
       `/templates/${encodeURIComponent(templateId)}/versions/${encodeURIComponent(versionId)}`,
+    );
+  }
+
+  // ─── Write operations (require approval token) ────────────────────────────
+
+  async createTemplate(input: CreateTemplateInput): Promise<Template> {
+    assertWriteApproved("sendgrid_create_template", input.approval_token);
+    return this.client.post<Template>("/templates", {
+      name: input.name,
+      generation: input.generation ?? "dynamic",
+    });
+  }
+
+  async activateTemplateVersion(input: ActivateVersionInput): Promise<TemplateVersion> {
+    assertWriteApproved("sendgrid_activate_template_version", input.approval_token);
+    return this.client.post<TemplateVersion>(
+      `/templates/${encodeURIComponent(input.template_id)}/versions/${encodeURIComponent(input.version_id)}/activate`,
+      {},
+    );
+  }
+
+  async createTemplateVersion(input: CreateVersionInput): Promise<TemplateVersion> {
+    assertWriteApproved("sendgrid_create_template_version", input.approval_token);
+    const body: Record<string, unknown> = {
+      name: input.name,
+      generate_plain_content: input.generate_plain_content ?? true,
+      active: input.active ?? 0,
+    };
+    if (input.subject !== undefined) body["subject"] = input.subject;
+    if (input.html_content !== undefined) body["html_content"] = input.html_content;
+    if (input.plain_content !== undefined) body["plain_content"] = input.plain_content;
+    return this.client.post<TemplateVersion>(
+      `/templates/${encodeURIComponent(input.template_id)}/versions`,
+      body,
     );
   }
 

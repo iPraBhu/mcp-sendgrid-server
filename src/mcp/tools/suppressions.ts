@@ -7,6 +7,8 @@ import { SuppressionsService } from "../../domains/suppressions/service.js";
 import {
   ListSuppressionsInputSchema,
   LookupRecipientSuppressionsInputSchema,
+  DeleteSuppressionInputSchema,
+  AddGlobalUnsubscribeInputSchema,
 } from "../../schemas/suppressions.js";
 import { formatError } from "../../utils/errors.js";
 import { logger } from "../../utils/logger.js";
@@ -211,6 +213,184 @@ export function registerSuppressionTools(server: McpServer): void {
               type: "text",
               text: JSON.stringify(
                 { summary: `${unsubs.length} global unsubscribe(s).`, count: unsubs.length, unsubscribes: unsubs },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Error: ${formatError(err)}` }], isError: true };
+      }
+    },
+  );
+
+  // ─── Write tools (require approval token) ─────────────────────────────────
+
+  server.tool(
+    "sendgrid_delete_bounce",
+    "Remove an email address from the bounce suppression list. " +
+      "Use after investigating and resolving the underlying delivery issue. " +
+      "Requires SENDGRID_READ_ONLY=false, SENDGRID_WRITES_ENABLED=true, and a matching approval_token.",
+    DeleteSuppressionInputSchema.shape,
+    async (input) => {
+      logger.audit("sendgrid_delete_bounce", { email: input.email });
+      try {
+        await service.deleteBounce(input);
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                { summary: `Bounce record removed for ${input.email}.`, email: input.email, deleted: true },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Error: ${formatError(err)}` }], isError: true };
+      }
+    },
+  );
+
+  server.tool(
+    "sendgrid_delete_block",
+    "Remove an email address from the block suppression list. " +
+      "Requires SENDGRID_READ_ONLY=false, SENDGRID_WRITES_ENABLED=true, and a matching approval_token.",
+    DeleteSuppressionInputSchema.shape,
+    async (input) => {
+      logger.audit("sendgrid_delete_block", { email: input.email });
+      try {
+        await service.deleteBlock(input);
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                { summary: `Block removed for ${input.email}.`, email: input.email, deleted: true },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Error: ${formatError(err)}` }], isError: true };
+      }
+    },
+  );
+
+  server.tool(
+    "sendgrid_delete_invalid_email",
+    "Remove an email address from the invalid email suppression list. " +
+      "Only use after confirming the address is now valid and deliverable. " +
+      "Requires SENDGRID_READ_ONLY=false, SENDGRID_WRITES_ENABLED=true, and a matching approval_token.",
+    DeleteSuppressionInputSchema.shape,
+    async (input) => {
+      logger.audit("sendgrid_delete_invalid_email", { email: input.email });
+      try {
+        await service.deleteInvalidEmail(input);
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                { summary: `Invalid email record removed for ${input.email}.`, email: input.email, deleted: true },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Error: ${formatError(err)}` }], isError: true };
+      }
+    },
+  );
+
+  server.tool(
+    "sendgrid_delete_spam_report",
+    "Remove an email address from the spam report suppression list. " +
+      "Only use when the report was in error or after re-obtaining explicit opt-in consent. " +
+      "Requires SENDGRID_READ_ONLY=false, SENDGRID_WRITES_ENABLED=true, and a matching approval_token.",
+    DeleteSuppressionInputSchema.shape,
+    async (input) => {
+      logger.audit("sendgrid_delete_spam_report", { email: input.email });
+      try {
+        await service.deleteSpamReport(input);
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                { summary: `Spam report removed for ${input.email}.`, email: input.email, deleted: true },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Error: ${formatError(err)}` }], isError: true };
+      }
+    },
+  );
+
+  server.tool(
+    "sendgrid_delete_global_unsubscribe",
+    "Remove an email address from the global unsubscribe list. " +
+      "Only use after obtaining fresh, explicit opt-in consent from the recipient. " +
+      "Requires SENDGRID_READ_ONLY=false, SENDGRID_WRITES_ENABLED=true, and a matching approval_token.",
+    DeleteSuppressionInputSchema.shape,
+    async (input) => {
+      logger.audit("sendgrid_delete_global_unsubscribe", { email: input.email });
+      try {
+        await service.deleteGlobalUnsubscribe(input);
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  summary: `Global unsubscribe removed for ${input.email}.`,
+                  email: input.email,
+                  deleted: true,
+                  note: "Ensure you have re-obtained explicit consent before sending to this address.",
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      } catch (err) {
+        return { content: [{ type: "text", text: `Error: ${formatError(err)}` }], isError: true };
+      }
+    },
+  );
+
+  server.tool(
+    "sendgrid_add_global_unsubscribes",
+    "Add one or more email addresses to the global unsubscribe list. " +
+      "Use this to honour opt-out requests received outside of SendGrid (e.g. direct reply, in-person request). " +
+      "Requires SENDGRID_READ_ONLY=false, SENDGRID_WRITES_ENABLED=true, and a matching approval_token.",
+    AddGlobalUnsubscribeInputSchema.shape,
+    async (input) => {
+      logger.audit("sendgrid_add_global_unsubscribes", { count: input.emails.length });
+      try {
+        const result = await service.addGlobalUnsubscribes(input);
+        const added = result?.recipient_emails ?? input.emails;
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  summary: `${added.length} address(es) added to the global unsubscribe list.`,
+                  added,
+                },
                 null,
                 2,
               ),

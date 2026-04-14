@@ -307,21 +307,21 @@ export class MailService {
 
     if (!cfg.writesEnabled) {
       throw new PolicyError(
-        `Write operations are disabled by configuration. To enable writes: set SENDGRID_WRITES_ENABLED=true and restart the server. (Blocked: ${operation})`,
+        `[WRITES_DISABLED] Write operations are disabled by configuration. To enable writes: set SENDGRID_WRITES_ENABLED=true and restart the server. (Blocked: ${operation})`,
         "WRITES_DISABLED",
       );
     }
 
     if (!cfg.writeApprovalToken) {
       throw new PolicyError(
-        "Write operations are enabled but missing SENDGRID_WRITE_APPROVAL_TOKEN. Restart with a token to proceed.",
+        "[WRITES_MISCONFIGURED] Write operations are enabled but missing SENDGRID_WRITE_APPROVAL_TOKEN. Restart with a token to proceed.",
         "WRITES_MISCONFIGURED",
       );
     }
 
     if (!approvalToken || approvalToken !== cfg.writeApprovalToken) {
       throw new PolicyError(
-        "Runtime write approval is required. Provide 'approval_token' matching SENDGRID_WRITE_APPROVAL_TOKEN.",
+        "[WRITE_APPROVAL_REQUIRED] Runtime write approval is required. Provide 'approval_token' matching SENDGRID_WRITE_APPROVAL_TOKEN.",
         "WRITE_APPROVAL_REQUIRED",
       );
     }

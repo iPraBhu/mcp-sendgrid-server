@@ -18,6 +18,8 @@ export interface NormalizedError {
   isAuthError: boolean;
   isRateLimit: boolean;
   isPlanLimitation: boolean;
+  /** Parsed value of the Retry-After response header, in milliseconds. */
+  retryAfterMs?: number;
   rawError?: unknown;
 }
 

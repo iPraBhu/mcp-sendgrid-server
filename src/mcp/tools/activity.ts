@@ -13,6 +13,13 @@ import {
 } from "../../schemas/activity.js";
 import { formatError } from "../../utils/errors.js";
 import { logger } from "../../utils/logger.js";
+import { redactEmailsInText } from "../../utils/redaction.js";
+import { getConfig } from "../../config/index.js";
+
+function applyOutputRedaction(json: string, overrideRedactPii?: boolean): string {
+  const shouldRedact = overrideRedactPii ?? getConfig().logging.redactPii;
+  return shouldRedact ? redactEmailsInText(json) : json;
+}
 
 type TroubleshootMsgInput = z.infer<z.ZodObject<typeof TroubleshootMessageInputSchemaShape>>;
 
@@ -47,17 +54,20 @@ export function registerActivityTools(server: McpServer): void {
           content: [
             {
               type: "text",
-              text: JSON.stringify(
-                {
-                  summary: `Found ${result.messages.length} message(s).`,
-                  total: result.total,
-                  has_more: result.hasMore,
-                  next_page_token: result.nextPageToken,
-                  messages: result.messages,
-                  plan_note: PLAN_NOTE,
-                },
-                null,
-                2,
+              text: applyOutputRedaction(
+                JSON.stringify(
+                  {
+                    summary: `Found ${result.messages.length} message(s).`,
+                    total: result.total,
+                    has_more: result.hasMore,
+                    next_page_token: result.nextPageToken,
+                    messages: result.messages,
+                    plan_note: PLAN_NOTE,
+                  },
+                  null,
+                  2,
+                ),
+                input.redact_pii,
               ),
             },
           ],
@@ -89,16 +99,19 @@ export function registerActivityTools(server: McpServer): void {
           content: [
             {
               type: "text",
-              text: JSON.stringify(
-                {
-                  summary: result.message
-                    ? `Message ${result.message.msg_id} — status: ${result.message.status}`
-                    : "Message not found.",
-                  message: result.message,
-                  plan_note: PLAN_NOTE,
-                },
-                null,
-                2,
+              text: applyOutputRedaction(
+                JSON.stringify(
+                  {
+                    summary: result.message
+                      ? `Message ${result.message.msg_id} — status: ${result.message.status}`
+                      : "Message not found.",
+                    message: result.message,
+                    plan_note: PLAN_NOTE,
+                  },
+                  null,
+                  2,
+                ),
+                input.redact_pii,
               ),
             },
           ],
@@ -135,19 +148,22 @@ export function registerActivityTools(server: McpServer): void {
           content: [
             {
               type: "text",
-              text: JSON.stringify(
-                {
-                  summary: result.likely_cause,
-                  email: result.email,
-                  message_id: result.message_id,
-                  status: result.status,
-                  confidence: result.confidence,
-                  evidence: result.evidence,
-                  recommended_next_checks: result.recommended_next_checks,
-                  event_count: result.events.length,
-                },
-                null,
-                2,
+              text: applyOutputRedaction(
+                JSON.stringify(
+                  {
+                    summary: result.likely_cause,
+                    email: result.email,
+                    message_id: result.message_id,
+                    status: result.status,
+                    confidence: result.confidence,
+                    evidence: result.evidence,
+                    recommended_next_checks: result.recommended_next_checks,
+                    event_count: result.events.length,
+                  },
+                  null,
+                  2,
+                ),
+                input.redact_pii,
               ),
             },
           ],
@@ -178,17 +194,20 @@ export function registerActivityTools(server: McpServer): void {
           content: [
             {
               type: "text",
-              text: JSON.stringify(
-                {
-                  summary: result.likely_cause,
-                  email: result.email,
-                  status: result.status,
-                  confidence: result.confidence,
-                  evidence: result.evidence,
-                  recommended_next_checks: result.recommended_next_checks,
-                },
-                null,
-                2,
+              text: applyOutputRedaction(
+                JSON.stringify(
+                  {
+                    summary: result.likely_cause,
+                    email: result.email,
+                    status: result.status,
+                    confidence: result.confidence,
+                    evidence: result.evidence,
+                    recommended_next_checks: result.recommended_next_checks,
+                  },
+                  null,
+                  2,
+                ),
+                input.redact_pii,
               ),
             },
           ],

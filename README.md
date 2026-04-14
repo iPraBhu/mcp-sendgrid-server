@@ -675,4 +675,6 @@ src/
 
 ---
 
+> **Vibe coded** — this project was built entirely through natural-language prompts with [Claude Code](https://claude.ai/code). No manual code was written.
+
 *Not affiliated with or endorsed by Twilio SendGrid. SendGrid is a trademark of Twilio Inc.*

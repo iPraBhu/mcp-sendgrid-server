@@ -24,6 +24,9 @@ Thumbs.db
 *.swp
 *.swo
 
+# Claude Code local settings
+.claude/
+
 # Test coverage
 coverage/
 .nyc_output/

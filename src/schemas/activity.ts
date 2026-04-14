@@ -18,6 +18,16 @@ export const MessageStatusSchema = z.enum([
   "click",
 ]);
 
+const RedactPiiField = {
+  redact_pii: z
+    .boolean()
+    .optional()
+    .describe(
+      "When true, mask email addresses in the tool output (overrides the REDACT_PII server config). " +
+        "Defaults to the REDACT_PII server setting.",
+    ),
+};
+
 export const SearchEmailActivityInputSchema = z.object({
   to_email: z.string().email().optional().describe("Filter by recipient email"),
   from_email: z.string().email().optional().describe("Filter by sender email"),
@@ -35,10 +45,12 @@ export const SearchEmailActivityInputSchema = z.object({
   message_id: z.string().optional().describe("Filter by SendGrid message ID"),
   limit: z.number().int().min(1).max(1000).optional().default(25).describe("Max messages to return"),
   page_token: z.string().optional().describe("Pagination token from previous response"),
+  ...RedactPiiField,
 });
 
 export const GetMessageDetailsInputSchema = z.object({
   message_id: z.string().min(1).describe("The SendGrid message ID (msg_id)"),
+  ...RedactPiiField,
 });
 
 export const TroubleshootMessageInputSchemaShape = {
@@ -46,6 +58,7 @@ export const TroubleshootMessageInputSchemaShape = {
   to_email: z.string().email().optional().describe("Recipient to investigate"),
   subject: z.string().optional().describe("Subject to search for"),
   after_time: z.string().optional().describe("Search window start (ISO 8601)"),
+  ...RedactPiiField,
 };
 
 export const TroubleshootMessageInputSchema = z
@@ -57,4 +70,5 @@ export const TroubleshootMessageInputSchema = z
 
 export const TroubleshootRecipientInputSchema = z.object({
   email: z.string().email().describe("The recipient email address to investigate"),
+  ...RedactPiiField,
 });
