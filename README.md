@@ -63,6 +63,8 @@ SENDGRID_API_KEY=SG.your-key npx mcp-sendgrid-server
 # → [INFO] MCP server connected via stdio. Waiting for requests...
 ```
 
+By default, the server starts in **read-only mode** (safe by default). Validation, read APIs, resources, and prompts work normally; write operations (sends) are blocked unless explicitly enabled.
+
 **2. Add it to your MCP client** (see [Client Configuration](#client-configuration) below).
 
 **3. Ask your agent:**
@@ -159,6 +161,44 @@ claude mcp add sendgrid -e SENDGRID_API_KEY=SG.your-api-key-here -- npx -y mcp-s
 }
 ```
 
+**Enable write operations from VS Code config** (requires manual approval; keep the token out of source control):
+
+```json
+{
+  "servers": {
+    "sendgrid": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "mcp-sendgrid-server"],
+      "env": {
+        "SENDGRID_API_KEY": "${env:SENDGRID_API_KEY}",
+        "SENDGRID_READ_ONLY": "false",
+        "SENDGRID_WRITES_ENABLED": "true",
+        "SENDGRID_WRITE_APPROVAL_TOKEN": "${env:SENDGRID_WRITE_APPROVAL_TOKEN}"
+      }
+    }
+  }
+}
+```
+
+**Disable write operations from VS Code config** (safe default):
+
+```json
+{
+  "servers": {
+    "sendgrid": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "mcp-sendgrid-server"],
+      "env": {
+        "SENDGRID_API_KEY": "${env:SENDGRID_API_KEY}",
+        "SENDGRID_READ_ONLY": "true"
+      }
+    }
+  }
+}
+```
+
 **User `settings.json`** — for secrets that should never be committed:
 
 ```json
@@ -242,6 +282,28 @@ The following variants apply to any client above — swap the `env` block as nee
 }
 ```
 
+**Enable write operations** (manual approval required; set these in your IDE MCP config):
+
+```json
+"env": {
+  "SENDGRID_API_KEY": "SG.your-api-key-here",
+  "SENDGRID_READ_ONLY": "false",
+  "SENDGRID_WRITES_ENABLED": "true",
+  "SENDGRID_WRITE_APPROVAL_TOKEN": "replace-with-strong-random-token"
+}
+```
+
+When writes are enabled, every write tool call must include `approval_token` matching `SENDGRID_WRITE_APPROVAL_TOKEN`.
+
+**Disable write operations** (recommended for most environments):
+
+```json
+"env": {
+  "SENDGRID_API_KEY": "SG.your-api-key-here",
+  "SENDGRID_READ_ONLY": "true"
+}
+```
+
 **Test-mode** (sends only to an allowlist — recommended for staging):
 
 ```json
@@ -272,7 +334,9 @@ All configuration is via environment variables. No config file is required.
 | `SENDGRID_API_KEY` | **Yes** | — | SendGrid API key (`SG.` prefix) |
 | `SENDGRID_REGION` | No | `global` | `global` or `eu` for EU data residency |
 | `SENDGRID_BASE_URL` | No | — | Override the API base URL entirely |
-| `SENDGRID_READ_ONLY` | No | `false` | Disable all email sends when `true` |
+| `SENDGRID_READ_ONLY` | No | `true` | Disable all write operations (safe default) |
+| `SENDGRID_WRITES_ENABLED` | No | `false` | Extra safety switch: when `false`, all writes are blocked even if `SENDGRID_READ_ONLY=false` |
+| `SENDGRID_WRITE_APPROVAL_TOKEN` | No | — | Required when `SENDGRID_WRITES_ENABLED=true`; write tools require matching `approval_token` at runtime |
 | `SENDGRID_TEST_MODE_ONLY` | No | `false` | Restrict sends to allowlisted recipients when `true` |
 | `SENDGRID_ALLOWED_FROM_DOMAINS` | No | — | Comma-separated sender domain allowlist |
 | `SENDGRID_ALLOWED_TO_DOMAINS` | No | — | Comma-separated recipient domain allowlist (test mode) |
@@ -295,7 +359,7 @@ All configuration is via environment variables. No config file is required.
 |---|---|
 | `sendgrid_validate_send_payload` | Validate a send payload locally — no API call, no email sent |
 | `sendgrid_test_send_email` | Send only to allowlisted recipients, with test category and tracing header |
-| `sendgrid_send_email` | Send a transactional email; blocked in read-only or test-mode-only |
+| `sendgrid_send_email` | Send a transactional email; blocked by default (read-only) and requires explicit write approval |
 
 ### Templates
 
@@ -407,6 +471,7 @@ Prompts encode multi-step agent workflows that reference the tools and resources
 {
   "tool": "sendgrid_send_email",
   "input": {
+    "approval_token": "replace-with-strong-random-token",
     "from": { "email": "noreply@yourapp.com", "name": "Your App" },
     "to": [{ "email": "user@example.com", "name": "Jane Doe" }],
     "subject": "Confirm your email address",
@@ -465,7 +530,7 @@ Create a restricted API key at **SendGrid → Settings → API Keys**. Grant onl
 | **Mail Settings — Read** | `sendgrid_get_mail_settings` |
 | **User Account — Read** | `sendgrid_get_account_summary` |
 
-For read-only deployments, omit **Mail Send** and set `SENDGRID_READ_ONLY=true`.
+For read-only deployments (default), omit **Mail Send** and keep `SENDGRID_READ_ONLY=true`.
 
 ---
 
@@ -498,8 +563,24 @@ Some SendGrid APIs are gated by plan tier or paid add-ons. The server handles th
 | Mode | Env var | Behaviour |
 |---|---|---|
 | **Normal** | — | Sends proceed after payload validation |
-| **Read-only** | `SENDGRID_READ_ONLY=true` | All sends blocked; validation and reads still function |
+| **Read-only (default)** | `SENDGRID_READ_ONLY=true` | All writes blocked; validation and reads still function |
 | **Test-mode** | `SENDGRID_TEST_MODE_ONLY=true` | `sendgrid_send_email` blocked; `sendgrid_test_send_email` allowed only to configured allowlist |
+
+### Enabling write operations (manual approval)
+
+Write operations (sending email) require **both** server configuration approval and runtime approval.
+
+**1) Config approval (server startup):**
+
+```bash
+SENDGRID_READ_ONLY=false
+SENDGRID_WRITES_ENABLED=true
+SENDGRID_WRITE_APPROVAL_TOKEN='replace-with-strong-random-token'
+```
+
+**2) Runtime approval (per tool call):**
+
+Provide `approval_token` in every call to a write tool (e.g. `sendgrid_send_email`, `sendgrid_test_send_email`).
 
 ### Attachment validation
 
@@ -523,7 +604,13 @@ Verify the key starts with `SG.`, has not been revoked, and has the required sco
 The Email Activity API requires the Email Activity add-on, available on Pro and Premier plans or as a separate purchase. The tools degrade gracefully with an explanatory message.
 
 **`Policy violation [READ_ONLY]`**
-`SENDGRID_READ_ONLY=true` is set. Remove the flag or set it to `false` to re-enable sends.
+The server runs read-only by default. To enable writes, set `SENDGRID_READ_ONLY=false` and restart.
+
+**`Policy violation [WRITES_DISABLED]`**
+Write operations are disabled unless explicitly enabled. Set `SENDGRID_WRITES_ENABLED=true` and restart.
+
+**`Policy violation [WRITE_APPROVAL_REQUIRED]`**
+Write tools require manual runtime approval. Provide `approval_token` matching `SENDGRID_WRITE_APPROVAL_TOKEN`.
 
 **`Policy violation [TEST_SEND_ALLOWLIST]`**
 `SENDGRID_TEST_MODE_ONLY=true` is set and the recipient is not on the allowlist. Add the address to `SENDGRID_ALLOWED_TO_EMAILS` or its domain to `SENDGRID_ALLOWED_TO_DOMAINS`.

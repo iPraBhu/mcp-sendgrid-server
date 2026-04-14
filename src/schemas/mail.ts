@@ -13,7 +13,7 @@ export const AttachmentSchema = z.object({
   content_id: z.string().optional(),
 });
 
-export const SendEmailInputSchema = z.object({
+const BaseSendPayloadSchema = z.object({
   from: EmailPersonalizationSchema.describe("Sender email address and optional display name"),
   to: z
     .array(EmailPersonalizationSchema)
@@ -80,6 +80,15 @@ export const SendEmailInputSchema = z.object({
     .optional(),
 });
 
+export const SendEmailInputSchema = BaseSendPayloadSchema.extend({
+  approval_token: z
+    .string()
+    .min(1)
+    .describe(
+      "Manual runtime approval token for write operations. Must match SENDGRID_WRITE_APPROVAL_TOKEN when writes are enabled.",
+    ),
+});
+
 export const TestSendEmailInputSchema = SendEmailInputSchema.extend({
   force_recipient: EmailPersonalizationSchema.optional().describe(
     "Override all recipients — useful for test sends",
@@ -92,7 +101,8 @@ export const TestSendEmailInputSchema = SendEmailInputSchema.extend({
   ),
 });
 
-export const ValidateSendPayloadInputSchema = SendEmailInputSchema;
+export const ValidateSendPayloadInputSchema = BaseSendPayloadSchema;
 
 export type SendEmailInput = z.infer<typeof SendEmailInputSchema>;
 export type TestSendEmailInput = z.infer<typeof TestSendEmailInputSchema>;
+export type ValidateSendPayloadInput = z.infer<typeof ValidateSendPayloadInputSchema>;

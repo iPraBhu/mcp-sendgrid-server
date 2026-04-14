@@ -60,7 +60,7 @@ export function registerMailTools(server: McpServer): void {
     "Send a test email via SendGrid with safety guardrails. " +
       "Validates against allowlists, can override recipients via force_recipient, " +
       "and automatically tags the message with a test category and header for tracing. " +
-      "Blocked if SENDGRID_READ_ONLY=true.",
+      "Blocked by default (read-only). Requires SENDGRID_READ_ONLY=false, SENDGRID_WRITES_ENABLED=true, and a matching approval_token at runtime.",
     TestSendEmailInputSchema.shape,
     async (input) => {
       logger.audit("sendgrid_test_send_email", input as Record<string, unknown>);
@@ -96,7 +96,8 @@ export function registerMailTools(server: McpServer): void {
     "Send a transactional email via SendGrid. " +
       "Supports text/HTML content, dynamic templates, attachments, scheduling (send_at), " +
       "unsubscribe groups, custom headers, and tracking settings. " +
-      "BLOCKED if SENDGRID_READ_ONLY=true or SENDGRID_TEST_MODE_ONLY=true. " +
+      "BLOCKED by default (read-only) and also blocked if SENDGRID_TEST_MODE_ONLY=true. " +
+      "Requires SENDGRID_READ_ONLY=false, SENDGRID_WRITES_ENABLED=true, and a matching approval_token at runtime. " +
       "Always validate first with sendgrid_validate_send_payload.",
     SendEmailInputSchema.shape,
     async (input) => {

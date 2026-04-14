@@ -7,7 +7,11 @@ import { getSendGridClient } from "../../client/sendgrid-client.js";
 import { getConfig } from "../../config/index.js";
 import { PolicyError, ValidationError } from "../../utils/errors.js";
 import { logger } from "../../utils/logger.js";
-import type { SendEmailInput, TestSendEmailInput } from "../../schemas/mail.js";
+import type {
+  SendEmailInput,
+  TestSendEmailInput,
+  ValidateSendPayloadInput,
+} from "../../schemas/mail.js";
 
 const MAX_ATTACHMENT_SIZE_BYTES = 30 * 1024 * 1024; // 30 MB total
 const MAX_SINGLE_ATTACHMENT_BYTES = 10 * 1024 * 1024; // 10 MB per attachment
@@ -38,7 +42,7 @@ export class MailService {
   /**
    * Validate a send payload locally without making any API calls.
    */
-  validatePayload(input: SendEmailInput): ValidationResult {
+  validatePayload(input: ValidateSendPayloadInput): ValidationResult {
     const errors: string[] = [];
     const warnings: string[] = [];
 
@@ -142,12 +146,7 @@ export class MailService {
    * Blocked in READ_ONLY mode or TEST_MODE_ONLY mode.
    */
   async send(input: SendEmailInput): Promise<SendResult> {
-    if (this.config.sendgrid.readOnly) {
-      throw new PolicyError(
-        "SENDGRID_READ_ONLY is enabled. Actual email sends are disabled. Use sendgrid_validate_send_payload or sendgrid_test_send_email.",
-        "READ_ONLY",
-      );
-    }
+    this.assertWriteApproved("sendgrid_send_email", input.approval_token);
     if (this.config.sendgrid.testModeOnly) {
       throw new PolicyError(
         "SENDGRID_TEST_MODE_ONLY is enabled. Use sendgrid_test_send_email for test sends, or disable TEST_MODE_ONLY for production sends.",
@@ -181,12 +180,7 @@ export class MailService {
    * Test-send an email with safety guards.
    */
   async testSend(input: TestSendEmailInput): Promise<SendResult> {
-    if (this.config.sendgrid.readOnly) {
-      throw new PolicyError(
-        "SENDGRID_READ_ONLY is enabled. Test sends are also disabled.",
-        "READ_ONLY",
-      );
-    }
+    this.assertWriteApproved("sendgrid_test_send_email", input.approval_token);
 
     // Build effective recipients
     let effectiveTo = input.to;
@@ -298,5 +292,38 @@ export class MailService {
     if (input.mail_settings) payload["mail_settings"] = input.mail_settings;
 
     return payload;
+  }
+
+  private assertWriteApproved(operation: string, approvalToken: string | undefined): void {
+    const cfg = this.config.sendgrid;
+
+    if (cfg.readOnly) {
+      throw new PolicyError(
+        "This server is running in read-only mode by default. " +
+          "Set SENDGRID_READ_ONLY=false AND explicitly enable writes to perform send operations.",
+        "READ_ONLY",
+      );
+    }
+
+    if (!cfg.writesEnabled) {
+      throw new PolicyError(
+        `Write operations are disabled by configuration. To enable writes: set SENDGRID_WRITES_ENABLED=true and restart the server. (Blocked: ${operation})`,
+        "WRITES_DISABLED",
+      );
+    }
+
+    if (!cfg.writeApprovalToken) {
+      throw new PolicyError(
+        "Write operations are enabled but missing SENDGRID_WRITE_APPROVAL_TOKEN. Restart with a token to proceed.",
+        "WRITES_MISCONFIGURED",
+      );
+    }
+
+    if (!approvalToken || approvalToken !== cfg.writeApprovalToken) {
+      throw new PolicyError(
+        "Runtime write approval is required. Provide 'approval_token' matching SENDGRID_WRITE_APPROVAL_TOKEN.",
+        "WRITE_APPROVAL_REQUIRED",
+      );
+    }
   }
 }

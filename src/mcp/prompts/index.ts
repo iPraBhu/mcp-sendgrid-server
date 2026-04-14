@@ -188,7 +188,7 @@ Steps:
 3. ${template_id ? `Call sendgrid_get_template_readiness_report with template_id="${template_id}" to check template readiness.` : "Confirm your email payload has both subject and content (text or HTML)."}
 4. Call sendgrid_lookup_recipient_suppressions with email="${test_recipient}" to ensure the test recipient is not suppressed.
 5. Call sendgrid_validate_send_payload with your actual send payload to run pre-send validation.
-6. If all checks pass, use sendgrid_test_send_email with force_recipient="${test_recipient}" to send the test.
+6. Note: this server runs read-only by default. If write operations are enabled (SENDGRID_READ_ONLY=false and SENDGRID_WRITES_ENABLED=true), use sendgrid_test_send_email with force_recipient="${test_recipient}" to send the test and include approval_token.
 7. After sending, call sendgrid_search_email_activity with to_email="${test_recipient}" to verify delivery.
 
 Report the status of each step and whether it is safe to proceed to production sending.`,

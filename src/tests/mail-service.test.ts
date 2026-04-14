@@ -128,14 +128,15 @@ describe("MailService.validatePayload", () => {
 });
 
 describe("MailService.send", () => {
-  it("throws PolicyError when READ_ONLY is enabled", async () => {
-    process.env["SENDGRID_READ_ONLY"] = "true";
+  it("throws PolicyError by default (read-only)", async () => {
+    // Default config is read-only now
     resetConfig();
     process.env["SENDGRID_API_KEY"] = "SG.testkey";
     const { MailService } = await import("../domains/mail/service.js");
     const svc = new MailService();
     await expect(
       svc.send({
+        approval_token: "token",
         from: { email: "sender@example.com" },
         to: [{ email: "recipient@test.com" }],
         subject: "Test",
@@ -144,14 +145,72 @@ describe("MailService.send", () => {
     ).rejects.toThrow(/READ_ONLY/);
   });
 
-  it("throws PolicyError when TEST_MODE_ONLY is enabled", async () => {
-    process.env["SENDGRID_TEST_MODE_ONLY"] = "true";
+  it("throws PolicyError when READ_ONLY is enabled", async () => {
+    process.env["SENDGRID_READ_ONLY"] = "true";
     resetConfig();
     process.env["SENDGRID_API_KEY"] = "SG.testkey";
     const { MailService } = await import("../domains/mail/service.js");
     const svc = new MailService();
     await expect(
       svc.send({
+        approval_token: "token",
+        from: { email: "sender@example.com" },
+        to: [{ email: "recipient@test.com" }],
+        subject: "Test",
+        text: "Body",
+      }),
+    ).rejects.toThrow(/READ_ONLY/);
+  });
+
+  it("throws PolicyError when writes are not enabled", async () => {
+    process.env["SENDGRID_READ_ONLY"] = "false";
+    // SENDGRID_WRITES_ENABLED defaults to false
+    resetConfig();
+    process.env["SENDGRID_API_KEY"] = "SG.testkey";
+    const { MailService } = await import("../domains/mail/service.js");
+    const svc = new MailService();
+    await expect(
+      svc.send({
+        approval_token: "token",
+        from: { email: "sender@example.com" },
+        to: [{ email: "recipient@test.com" }],
+        subject: "Test",
+        text: "Body",
+      }),
+    ).rejects.toThrow(/WRITES_DISABLED/);
+  });
+
+  it("throws PolicyError when runtime approval token is missing or incorrect", async () => {
+    process.env["SENDGRID_READ_ONLY"] = "false";
+    process.env["SENDGRID_WRITES_ENABLED"] = "true";
+    process.env["SENDGRID_WRITE_APPROVAL_TOKEN"] = "token-123";
+    resetConfig();
+    process.env["SENDGRID_API_KEY"] = "SG.testkey";
+    const { MailService } = await import("../domains/mail/service.js");
+    const svc = new MailService();
+    await expect(
+      svc.send({
+        approval_token: "wrong-token",
+        from: { email: "sender@example.com" },
+        to: [{ email: "recipient@test.com" }],
+        subject: "Test",
+        text: "Body",
+      }),
+    ).rejects.toThrow(/WRITE_APPROVAL_REQUIRED/);
+  });
+
+  it("throws PolicyError when TEST_MODE_ONLY is enabled", async () => {
+    process.env["SENDGRID_TEST_MODE_ONLY"] = "true";
+    process.env["SENDGRID_READ_ONLY"] = "false";
+    process.env["SENDGRID_WRITES_ENABLED"] = "true";
+    process.env["SENDGRID_WRITE_APPROVAL_TOKEN"] = "token-123";
+    resetConfig();
+    process.env["SENDGRID_API_KEY"] = "SG.testkey";
+    const { MailService } = await import("../domains/mail/service.js");
+    const svc = new MailService();
+    await expect(
+      svc.send({
+        approval_token: "token-123",
         from: { email: "sender@example.com" },
         to: [{ email: "recipient@test.com" }],
         subject: "Test",

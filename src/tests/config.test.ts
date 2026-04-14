@@ -30,7 +30,9 @@ describe("loadConfig", () => {
     expect(config.sendgrid.apiKey).toBe("SG.testkey");
     expect(config.sendgrid.region).toBe("global");
     expect(config.sendgrid.baseUrl).toBe("https://api.sendgrid.com");
-    expect(config.sendgrid.readOnly).toBe(false);
+    expect(config.sendgrid.readOnly).toBe(true);
+    expect(config.sendgrid.writesEnabled).toBe(false);
+    expect(config.sendgrid.writeApprovalToken).toBeUndefined();
     expect(config.sendgrid.testModeOnly).toBe(false);
     expect(config.sendgrid.defaultPageSize).toBe(25);
     expect(config.sendgrid.maxPageSize).toBe(100);
@@ -70,6 +72,25 @@ describe("loadConfig", () => {
     expect(config.sendgrid.readOnly).toBe(true);
     expect(config.sendgrid.testModeOnly).toBe(true);
     expect(config.logging.redactPii).toBe(false);
+  });
+
+  it("throws if writes are enabled without an approval token", () => {
+    process.env["SENDGRID_API_KEY"] = "SG.testkey";
+    process.env["SENDGRID_READ_ONLY"] = "false";
+    process.env["SENDGRID_WRITES_ENABLED"] = "true";
+    delete process.env["SENDGRID_WRITE_APPROVAL_TOKEN"];
+    expect(() => loadConfig()).toThrow(/SENDGRID_WRITE_APPROVAL_TOKEN/);
+  });
+
+  it("loads write config when enabled with token", () => {
+    process.env["SENDGRID_API_KEY"] = "SG.testkey";
+    process.env["SENDGRID_READ_ONLY"] = "false";
+    process.env["SENDGRID_WRITES_ENABLED"] = "true";
+    process.env["SENDGRID_WRITE_APPROVAL_TOKEN"] = "token-123";
+    const config = loadConfig();
+    expect(config.sendgrid.readOnly).toBe(false);
+    expect(config.sendgrid.writesEnabled).toBe(true);
+    expect(config.sendgrid.writeApprovalToken).toBe("token-123");
   });
 
   it("parses allowlist env vars", () => {

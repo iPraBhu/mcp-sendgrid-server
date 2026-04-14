@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { SendEmailInputSchema, AttachmentSchema } from "../schemas/mail.js";
+import { SendEmailInputSchema, ValidateSendPayloadInputSchema, AttachmentSchema } from "../schemas/mail.js";
 import { DateRangeSchema } from "../schemas/common.js";
 import { GetGlobalStatsInputSchema } from "../schemas/stats.js";
 import { SearchEmailActivityInputSchema } from "../schemas/activity.js";
@@ -7,6 +7,7 @@ import { SearchEmailActivityInputSchema } from "../schemas/activity.js";
 describe("SendEmailInputSchema", () => {
   it("validates a minimal valid email payload", () => {
     const result = SendEmailInputSchema.safeParse({
+      approval_token: "token",
       from: { email: "sender@example.com" },
       to: [{ email: "recipient@test.com" }],
       subject: "Hello",
@@ -17,6 +18,7 @@ describe("SendEmailInputSchema", () => {
 
   it("requires at least one 'to' recipient", () => {
     const result = SendEmailInputSchema.safeParse({
+      approval_token: "token",
       from: { email: "sender@example.com" },
       to: [],
       subject: "Hello",
@@ -27,6 +29,7 @@ describe("SendEmailInputSchema", () => {
 
   it("rejects invalid 'from' email", () => {
     const result = SendEmailInputSchema.safeParse({
+      approval_token: "token",
       from: { email: "not-an-email" },
       to: [{ email: "recipient@test.com" }],
       subject: "Hello",
@@ -37,6 +40,7 @@ describe("SendEmailInputSchema", () => {
 
   it("accepts template_id without subject/content", () => {
     const result = SendEmailInputSchema.safeParse({
+      approval_token: "token",
       from: { email: "sender@example.com" },
       to: [{ email: "recipient@test.com" }],
       template_id: "d-abc123",
@@ -46,6 +50,7 @@ describe("SendEmailInputSchema", () => {
 
   it("rejects more than 10 categories", () => {
     const result = SendEmailInputSchema.safeParse({
+      approval_token: "token",
       from: { email: "sender@example.com" },
       to: [{ email: "recipient@test.com" }],
       subject: "Test",
@@ -53,6 +58,18 @@ describe("SendEmailInputSchema", () => {
       categories: Array.from({ length: 11 }, (_, i) => `cat-${i}`),
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe("ValidateSendPayloadInputSchema", () => {
+  it("validates a minimal payload without approval_token", () => {
+    const result = ValidateSendPayloadInputSchema.safeParse({
+      from: { email: "sender@example.com" },
+      to: [{ email: "recipient@test.com" }],
+      subject: "Hello",
+      text: "World",
+    });
+    expect(result.success).toBe(true);
   });
 });
 

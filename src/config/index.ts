@@ -16,6 +16,16 @@ export interface SendGridConfig {
   readonly defaultPageSize: number;
   readonly maxPageSize: number;
   readonly readOnly: boolean;
+  /**
+   * Global write enable switch. When false (default), all write operations are blocked
+   * even if SENDGRID_READ_ONLY=false.
+   */
+  readonly writesEnabled: boolean;
+  /**
+   * Manual approval token required at runtime for any write operation.
+   * Only applicable when writesEnabled=true.
+   */
+  readonly writeApprovalToken: string | undefined;
   readonly testModeOnly: boolean;
   readonly allowedFromDomains: readonly string[];
   readonly allowedToDomains: readonly string[];
@@ -65,6 +75,11 @@ function parseStringList(value: string | undefined): string[] {
     .filter((s) => s.length > 0);
 }
 
+function parseNonEmptyString(value: string | undefined): string | undefined {
+  const v = value?.trim();
+  return v && v.length > 0 ? v : undefined;
+}
+
 function parseLogLevel(value: string | undefined): LogLevel {
   const levels: LogLevel[] = ["debug", "info", "warn", "error"];
   if (value && levels.includes(value as LogLevel)) return value as LogLevel;
@@ -99,6 +114,18 @@ export function loadConfig(): Config {
   const defaultPageSize = parseInteger(process.env["SENDGRID_DEFAULT_PAGE_SIZE"], 25);
   const maxPageSize = parseInteger(process.env["SENDGRID_MAX_PAGE_SIZE"], 100);
 
+  // Default-safe: run in read-only mode unless explicitly disabled.
+  const readOnly = parseBoolean(process.env["SENDGRID_READ_ONLY"], true);
+  const writesEnabled = parseBoolean(process.env["SENDGRID_WRITES_ENABLED"], false);
+  const writeApprovalToken = parseNonEmptyString(process.env["SENDGRID_WRITE_APPROVAL_TOKEN"]);
+
+  if (writesEnabled && !writeApprovalToken) {
+    throw new Error(
+      "SENDGRID_WRITES_ENABLED is true but SENDGRID_WRITE_APPROVAL_TOKEN is not set. " +
+        "Set SENDGRID_WRITE_APPROVAL_TOKEN to a strong random value to enable write operations.",
+    );
+  }
+
   _config = {
     sendgrid: {
       apiKey,
@@ -107,7 +134,9 @@ export function loadConfig(): Config {
       timeoutMs: parseInteger(process.env["SENDGRID_TIMEOUT_MS"], 30_000),
       defaultPageSize: Math.min(defaultPageSize, maxPageSize),
       maxPageSize: Math.min(maxPageSize, 500),
-      readOnly: parseBoolean(process.env["SENDGRID_READ_ONLY"], false),
+      readOnly,
+      writesEnabled,
+      writeApprovalToken,
       testModeOnly: parseBoolean(process.env["SENDGRID_TEST_MODE_ONLY"], false),
       allowedFromDomains: parseStringList(process.env["SENDGRID_ALLOWED_FROM_DOMAINS"]),
       allowedToDomains: parseStringList(process.env["SENDGRID_ALLOWED_TO_DOMAINS"]),
