@@ -13,7 +13,11 @@ import {
 import { formatError } from "../../utils/errors.js";
 import { logger } from "../../utils/logger.js";
 
-export function registerSuppressionTools(server: McpServer): void {
+export function registerSuppressionTools(
+  server: McpServer,
+  options: { analyticsMode?: boolean } = {},
+): void {
+  const { analyticsMode = false } = options;
   const service = new SuppressionsService();
 
   server.tool(
@@ -226,6 +230,8 @@ export function registerSuppressionTools(server: McpServer): void {
   );
 
   // ─── Write tools (require approval token) ─────────────────────────────────
+  // Suppression write tools are not registered in analytics mode.
+  if (analyticsMode) return;
 
   server.tool(
     "sendgrid_delete_bounce",

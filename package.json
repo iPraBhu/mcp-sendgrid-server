@@ -1,15 +1,29 @@
 {
   "name": "mcp-sendgrid-server",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Production-grade MCP server for Twilio SendGrid transactional email",
+  "author": "Pratik Bhuite <pratik.bhuite@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/iPraBhu/mcp-sendgrid-server.git"
+  },
+  "homepage": "https://github.com/iPraBhu/mcp-sendgrid-server#readme",
+  "bugs": {
+    "url": "https://github.com/iPraBhu/mcp-sendgrid-server/issues"
+  },
   "type": "module",
   "main": "dist/index.js",
   "bin": {
     "mcp-sendgrid-server": "dist/index.js"
   },
-  "files": ["dist", "README.md", ".env.example"],
+  "files": [
+    "dist",
+    "README.md",
+    ".env.example"
+  ],
   "scripts": {
     "build": "tsc",
+    "prepublishOnly": "npm run build",
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
     "test": "vitest run",
@@ -46,5 +60,10 @@
     "transactional-email",
     "model-context-protocol"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "pnpm": {
+    "ignoredBuiltDependencies": [
+      "esbuild"
+    ]
+  }
 }

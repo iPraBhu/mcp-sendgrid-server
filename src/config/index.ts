@@ -7,6 +7,7 @@
 export type LogLevel = "debug" | "info" | "warn" | "error";
 export type McpTransport = "stdio" | "http";
 export type SendGridRegion = "global" | "eu";
+export type ServerMode = "full" | "analytics";
 
 export interface SendGridConfig {
   readonly apiKey: string;
@@ -18,6 +19,12 @@ export interface SendGridConfig {
   readonly maxConcurrency: number;
   readonly defaultPageSize: number;
   readonly maxPageSize: number;
+  /**
+   * Server mode. "analytics" restricts the server to stats, email activity, and
+   * suppression read tools only — mail send, templates, settings, senders, and
+   * suppression writes are not registered. Implies readOnly=true.
+   */
+  readonly mode: ServerMode;
   readonly readOnly: boolean;
   /**
    * Global write enable switch. When false (default), all write operations are blocked
@@ -99,6 +106,11 @@ function parseTransport(value: string | undefined): McpTransport {
   return "stdio";
 }
 
+function parseServerMode(value: string | undefined): ServerMode {
+  if (value === "analytics") return "analytics";
+  return "full";
+}
+
 let _config: Config | null = null;
 
 export function loadConfig(): Config {
@@ -117,9 +129,12 @@ export function loadConfig(): Config {
   const defaultPageSize = parseInteger(process.env["SENDGRID_DEFAULT_PAGE_SIZE"], 25);
   const maxPageSize = parseInteger(process.env["SENDGRID_MAX_PAGE_SIZE"], 100);
 
+  const mode = parseServerMode(process.env["SENDGRID_MODE"]);
+
   // Default-safe: run in read-only mode unless explicitly disabled.
-  const readOnly = parseBoolean(process.env["SENDGRID_READ_ONLY"], true);
-  const writesEnabled = parseBoolean(process.env["SENDGRID_WRITES_ENABLED"], false);
+  // Analytics mode always forces read-only regardless of SENDGRID_READ_ONLY.
+  const readOnly = mode === "analytics" ? true : parseBoolean(process.env["SENDGRID_READ_ONLY"], true);
+  const writesEnabled = mode === "analytics" ? false : parseBoolean(process.env["SENDGRID_WRITES_ENABLED"], false);
   const writeApprovalToken = parseNonEmptyString(process.env["SENDGRID_WRITE_APPROVAL_TOKEN"]);
 
   if (writesEnabled && !writeApprovalToken) {
@@ -139,6 +154,7 @@ export function loadConfig(): Config {
       maxConcurrency: parseInteger(process.env["SENDGRID_MAX_CONCURRENCY"], 10),
       defaultPageSize: Math.min(defaultPageSize, maxPageSize),
       maxPageSize: Math.min(maxPageSize, 500),
+      mode,
       readOnly,
       writesEnabled,
       writeApprovalToken,

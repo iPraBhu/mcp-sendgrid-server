@@ -22,22 +22,24 @@ import { getConfig } from "../../config/index.js";
 
 const RESOURCE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
-export function registerResources(server: McpServer): void {
-  const accountService = new AccountService();
+export function registerResources(
+  server: McpServer,
+  options: { analyticsMode?: boolean } = {},
+): void {
+  const { analyticsMode = false } = options;
+
+  // Always-available services (present in both full and analytics mode).
   const statsService = new StatsService();
   const suppressionsService = new SuppressionsService();
-  const templatesService = new TemplatesService();
-  const sendersService = new SendersService();
-  const settingsService = new SettingsService();
-
-  const accountCache = new TtlCache<AccountSummary>(RESOURCE_TTL_MS);
-  const templatesCache = new TtlCache<{ templates: Template[]; total: number; hasMore: boolean; nextPageToken?: string }>(RESOURCE_TTL_MS);
   const stats7Cache = new TtlCache<StatsPeriodSummary>(RESOURCE_TTL_MS);
   const stats30Cache = new TtlCache<StatsPeriodSummary>(RESOURCE_TTL_MS);
   const suppressionsCache = new TtlCache<SuppressionsOverview>(RESOURCE_TTL_MS);
-  const trackingCache = new TtlCache<TrackingSettings>(RESOURCE_TTL_MS);
-  const mailSettingsCache = new TtlCache<MailSettings>(RESOURCE_TTL_MS);
-  const sendersCache = new TtlCache<{ senders: VerifiedSender[]; hasMore: boolean }>(RESOURCE_TTL_MS);
+
+  if (!analyticsMode) {
+  const accountService = new AccountService();
+  const templatesService = new TemplatesService();
+  const accountCache = new TtlCache<AccountSummary>(RESOURCE_TTL_MS);
+  const templatesCache = new TtlCache<{ templates: Template[]; total: number; hasMore: boolean; nextPageToken?: string }>(RESOURCE_TTL_MS);
 
   // ─── sendgrid://account/summary ───────────────────────────────────────────
   server.resource(
@@ -121,6 +123,7 @@ export function registerResources(server: McpServer): void {
       }
     },
   );
+  } // end !analyticsMode (account/summary, templates)
 
   // ─── sendgrid://stats/last-7-days ────────────────────────────────────────
   server.resource(
@@ -242,6 +245,11 @@ export function registerResources(server: McpServer): void {
     },
   );
 
+  if (!analyticsMode) {
+  const settingsService = new SettingsService();
+  const trackingCache = new TtlCache<TrackingSettings>(RESOURCE_TTL_MS);
+  const mailSettingsCache = new TtlCache<MailSettings>(RESOURCE_TTL_MS);
+
   // ─── sendgrid://settings/tracking ────────────────────────────────────────
   server.resource(
     "sendgrid-settings-tracking",
@@ -309,6 +317,7 @@ export function registerResources(server: McpServer): void {
       }
     },
   );
+  } // end !analyticsMode (settings/tracking, settings/mail)
 
   // ─── sendgrid://config/policy ────────────────────────────────────────────
   server.resource(
@@ -336,6 +345,7 @@ export function registerResources(server: McpServer): void {
             mimeType: "application/json",
             text: JSON.stringify(
               {
+                server_mode: sg.mode,
                 mode,
                 region: sg.region,
                 read_only: sg.readOnly,
@@ -366,7 +376,11 @@ export function registerResources(server: McpServer): void {
     },
   );
 
-  // ─── sendgrid://senders ───────────────────────────────────────────────────
+  if (!analyticsMode) {
+  const sendersService = new SendersService();
+  const sendersCache = new TtlCache<{ senders: VerifiedSender[]; hasMore: boolean }>(RESOURCE_TTL_MS);
+
+  // ─── sendgrid://senders ──────────────────────────────────────────────────
   server.resource(
     "sendgrid-senders",
     "sendgrid://senders",
@@ -407,4 +421,5 @@ export function registerResources(server: McpServer): void {
       }
     },
   );
+  } // end !analyticsMode (senders)
 }
