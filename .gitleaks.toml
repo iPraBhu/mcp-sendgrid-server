@@ -1,0 +1,8 @@
+[allowlists]
+  description = "Global allowlists"
+
+  # pnpm-lock.yaml integrity fields are sha512 hashes — high-entropy base64 by design,
+  # not secrets. Allowlist the entire file to suppress false positives.
+  paths = [
+    "pnpm-lock.yaml",
+  ]

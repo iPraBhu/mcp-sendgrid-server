@@ -6,6 +6,7 @@ An MCP (Model Context Protocol) server that connects AI coding agents to your [T
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node ≥18](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](https://nodejs.org)
 [![MCP](https://img.shields.io/badge/MCP-compatible-purple)](https://modelcontextprotocol.io)
+[![Security Scan](https://mcpampel.com/badge/iPraBhu/mcp-sendgrid-server.svg)](https://mcpampel.com/repo/iPraBhu/mcp-sendgrid-server)
 
 ---
 
@@ -370,3 +371,5 @@ pnpm typecheck                           # type check without emitting
 [MIT](LICENSE) © 2026 Pratik Bhuite
 
 *Not affiliated with or endorsed by Twilio SendGrid. SendGrid is a trademark of Twilio Inc.*
+
+> Developed with the assistance of an AI coding assistant.
