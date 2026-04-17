@@ -232,17 +232,22 @@ export class ActivityService {
     };
   }
 
+  private escapeDslValue(value: string): string {
+    return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  }
+
   private buildActivityQuery(input: SearchInput): string {
+    const esc = this.escapeDslValue.bind(this);
     const clauses: string[] = [];
-    if (input.to_email) clauses.push(`to_email="${input.to_email}"`);
-    if (input.from_email) clauses.push(`from_email="${input.from_email}"`);
-    if (input.subject) clauses.push(`subject="${input.subject}"`);
-    if (input.status) clauses.push(`status="${input.status}"`);
-    if (input.message_id) clauses.push(`msg_id="${input.message_id}"`);
-    if (input.after_time) clauses.push(`last_event_time>="${input.after_time}"`);
-    if (input.before_time) clauses.push(`last_event_time<="${input.before_time}"`);
+    if (input.to_email) clauses.push(`to_email="${esc(input.to_email)}"`);
+    if (input.from_email) clauses.push(`from_email="${esc(input.from_email)}"`);
+    if (input.subject) clauses.push(`subject="${esc(input.subject)}"`);
+    if (input.status) clauses.push(`status="${esc(input.status)}"`);
+    if (input.message_id) clauses.push(`msg_id="${esc(input.message_id)}"`);
+    if (input.after_time) clauses.push(`last_event_time>="${esc(input.after_time)}"`);
+    if (input.before_time) clauses.push(`last_event_time<="${esc(input.before_time)}"`);
     if (input.categories?.length) {
-      clauses.push(`(${input.categories.map((c) => `categories="${c}"`).join(" OR ")})`);
+      clauses.push(`(${input.categories.map((c) => `categories="${esc(c)}"`).join(" OR ")})`);
     }
     return clauses.join(" AND ");
   }
