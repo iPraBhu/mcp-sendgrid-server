@@ -20,7 +20,8 @@ import { formatError } from "../../utils/errors.js";
 import { TtlCache } from "../../utils/cache.js";
 import { getConfig } from "../../config/index.js";
 
-const RESOURCE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const RESOURCE_TTL_MS = 5 * 60 * 1000; // 5 minutes — volatile resources (settings, senders, account)
+const STATS_TTL_MS = 60 * 60 * 1000; // 60 minutes — historical aggregates change at most once/day
 
 export function registerResources(
   server: McpServer,
@@ -31,8 +32,8 @@ export function registerResources(
   // Always-available services (present in both full and analytics mode).
   const statsService = new StatsService();
   const suppressionsService = new SuppressionsService();
-  const stats7Cache = new TtlCache<StatsPeriodSummary>(RESOURCE_TTL_MS);
-  const stats30Cache = new TtlCache<StatsPeriodSummary>(RESOURCE_TTL_MS);
+  const stats7Cache = new TtlCache<StatsPeriodSummary>(STATS_TTL_MS);
+  const stats30Cache = new TtlCache<StatsPeriodSummary>(STATS_TTL_MS);
   const suppressionsCache = new TtlCache<SuppressionsOverview>(RESOURCE_TTL_MS);
 
   if (!analyticsMode) {
