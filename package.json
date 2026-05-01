@@ -1,6 +1,6 @@
 {
   "name": "mcp-sendgrid-server",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Production-grade MCP server for Twilio SendGrid transactional email",
   "author": "Pratik Bhuite <pratik.bhuite@gmail.com>",
   "repository": {

@@ -19,9 +19,10 @@ The server exposes SendGrid capabilities as MCP tools your agent can call:
 - **Email Activity** — search message logs, view delivery timelines, troubleshoot failed deliveries
 - **Stats & Analytics** — global and category stats, period comparisons, deliverability health scores
 - **Suppressions** — view and manage bounces, blocks, spam reports, invalid emails, unsubscribes
+- **IP Access Management** — inspect recent IP access attempts and manage the IP allow list
 - **Account & Settings** — verified senders, tracking settings, mail settings, account summary
 
-It is **read-only by default**. Write operations (sending email, modifying suppressions) require explicit opt-in via environment variables plus a runtime approval token on every call.
+It is **read-only by default**. Write operations (sending email, modifying suppressions, modifying the IP allow list) require explicit opt-in via environment variables plus a runtime approval token on every call.
 
 ---
 
@@ -92,7 +93,7 @@ All configuration is done via environment variables in the `env` block of your M
 | Variable | Required | Default | Possible values | Description |
 |---|---|---|---|---|
 | `SENDGRID_API_KEY` | **Yes** | — | Any valid `SG.` key | Your SendGrid API key |
-| `SENDGRID_MODE` | No | `full` | `full`, `analytics` | `full` enables all tools. `analytics` restricts to stats, email activity, and suppression reads only — nothing can be sent or modified. See [Server Modes](#server-modes). |
+| `SENDGRID_MODE` | No | `full` | `full`, `analytics` | `full` enables all tools. `analytics` restricts to stats, email activity, suppression reads, and IP access reads only — nothing can be sent or modified. See [Server Modes](#server-modes). |
 | `SENDGRID_REGION` | No | `global` | `global`, `eu` | Use `eu` if your SendGrid account is on the EU data residency plan |
 | `SENDGRID_BASE_URL` | No | — | Any URL | Overrides the API base URL entirely. Useful for proxies or testing. Takes precedence over `SENDGRID_REGION`. |
 
@@ -169,7 +170,7 @@ All tools, resources, and prompts are available. Write operations are still gate
 
 ### Analytics mode
 
-Only stats, email activity, and suppression read tools are registered. Nothing can be sent or modified — the mode forcibly overrides `SENDGRID_READ_ONLY` and `SENDGRID_WRITES_ENABLED` regardless of what you set. Useful when you want an agent that can investigate deliverability but has no ability to send.
+Only stats, email activity, suppression read, and IP access read tools are registered. Nothing can be sent or modified — the mode forcibly overrides `SENDGRID_READ_ONLY` and `SENDGRID_WRITES_ENABLED` regardless of what you set. Useful when you want an agent that can investigate deliverability and access alerts but has no ability to send or modify account state.
 
 ```json
 "env": {
@@ -178,9 +179,9 @@ Only stats, email activity, and suppression read tools are registered. Nothing c
 }
 ```
 
-**Available in analytics mode:** all stats tools, all email activity tools, suppression read tools, and the `sendgrid://stats/*`, `sendgrid://suppressions/overview`, `sendgrid://config/policy` resources.
+**Available in analytics mode:** all stats tools, all email activity tools, suppression read tools, IP access read tools, and the `sendgrid://stats/*`, `sendgrid://suppressions/overview`, `sendgrid://config/policy` resources.
 
-**Not registered:** mail send, templates, settings, senders, account tools, suppression write tools.
+**Not registered:** mail send, templates, settings, senders, account tools, suppression write tools, IP access write tools.
 
 ---
 
@@ -242,6 +243,15 @@ Only stats, email activity, and suppression read tools are registered. Nothing c
 | `sendgrid_delete_global_unsubscribe` | Remove an address from the global unsubscribe list (requires write approval) |
 | `sendgrid_add_global_unsubscribes` | Add addresses to the global unsubscribe list (requires write approval) |
 
+### IP Access Management
+
+| Tool | Description |
+|---|---|
+| `sendgrid_list_ip_access_activity` | List recent IP access attempts that can trigger SendGrid IP access alerts |
+| `sendgrid_list_ip_whitelist` | List IP addresses and CIDR ranges currently allowed to access the account |
+| `sendgrid_add_ip_to_whitelist` | Add IP addresses or CIDR ranges to the allow list (requires write approval) |
+| `sendgrid_remove_ip_from_whitelist` | Remove an allowed IP rule by rule ID (requires write approval) |
+
 ### Account & Settings
 
 | Tool | Description |
@@ -298,12 +308,14 @@ Create a restricted API key at **SendGrid → Settings → API Keys**. Grant onl
 | Stats — Read | All stats tools and `sendgrid_get_deliverability_summary` |
 | Suppressions — Read | All suppression list and lookup tools |
 | Suppressions — Write | Suppression delete/add tools |
+| IP Access Management — Read | `sendgrid_list_ip_access_activity`, `sendgrid_list_ip_whitelist` |
+| IP Access Management — Write | `sendgrid_add_ip_to_whitelist`, `sendgrid_remove_ip_from_whitelist` |
 | Verified Senders — Read | `sendgrid_list_verified_senders` |
 | Tracking Settings — Read | `sendgrid_get_tracking_settings` |
 | Mail Settings — Read | `sendgrid_get_mail_settings` |
 | User Account — Read | `sendgrid_get_account_summary` |
 
-For read-only deployments (the default), omit Mail Send and Suppressions — Write.
+For read-only deployments (the default), omit Mail Send, Suppressions — Write, and IP Access Management — Write.
 
 ---
 

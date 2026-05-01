@@ -20,9 +20,9 @@ export interface SendGridConfig {
   readonly defaultPageSize: number;
   readonly maxPageSize: number;
   /**
-   * Server mode. "analytics" restricts the server to stats, email activity, and
-   * suppression read tools only — mail send, templates, settings, senders, and
-   * suppression writes are not registered. Implies readOnly=true.
+   * Server mode. "analytics" restricts the server to stats, email activity,
+   * suppression read tools, and IP access read tools only — mail send, templates,
+   * settings, senders, and writes are not registered. Implies readOnly=true.
    */
   readonly mode: ServerMode;
   readonly readOnly: boolean;
