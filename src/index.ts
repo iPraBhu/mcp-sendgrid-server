@@ -35,7 +35,7 @@ REQUIRED
 
 KEY OPTIONS
   SENDGRID_MODE         full (default) | analytics
-                          analytics = stats, activity, and suppression reads only; no sends
+                          analytics = stats, activity, suppression reads, and IP access reads only; no sends
   SENDGRID_READ_ONLY    true (default) | false
                           Set to false to allow write operations
   SENDGRID_WRITES_ENABLED  false (default) | true

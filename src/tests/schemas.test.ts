@@ -3,6 +3,7 @@ import { SendEmailInputSchema, ValidateSendPayloadInputSchema, AttachmentSchema 
 import { DateRangeSchema } from "../schemas/common.js";
 import { GetGlobalStatsInputSchema } from "../schemas/stats.js";
 import { SearchEmailActivityInputSchema } from "../schemas/activity.js";
+import { AddIpToWhitelistInputSchema, RemoveIpFromWhitelistInputSchema } from "../schemas/ip-access.js";
 
 describe("SendEmailInputSchema", () => {
   it("validates a minimal valid email payload", () => {
@@ -147,6 +148,31 @@ describe("SearchEmailActivityInputSchema", () => {
 
   it("accepts valid status values", () => {
     const result = SearchEmailActivityInputSchema.safeParse({ status: "delivered" });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("IP Access schemas", () => {
+  it("requires approval_token when adding IPs to the allow list", () => {
+    const result = AddIpToWhitelistInputSchema.safeParse({
+      ips: ["192.168.1.1"],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("validates add IP allow-list input", () => {
+    const result = AddIpToWhitelistInputSchema.safeParse({
+      approval_token: "token",
+      ips: ["192.168.1.1", "192.0.2.0/24"],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("validates remove IP allow-list input", () => {
+    const result = RemoveIpFromWhitelistInputSchema.safeParse({
+      approval_token: "token",
+      rule_id: "123",
+    });
     expect(result.success).toBe(true);
   });
 });

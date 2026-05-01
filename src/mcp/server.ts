@@ -10,6 +10,7 @@ import { registerTemplateTools } from "./tools/templates.js";
 import { registerActivityTools } from "./tools/activity.js";
 import { registerStatsTools } from "./tools/stats.js";
 import { registerSuppressionTools } from "./tools/suppressions.js";
+import { registerIpAccessTools } from "./tools/ip-access.js";
 import { registerSettingsTools } from "./tools/settings.js";
 import { registerSenderTools } from "./tools/senders.js";
 import { registerAccountTools } from "./tools/account.js";
@@ -48,6 +49,7 @@ export function createMcpServer(): McpServer {
   registerActivityTools(server);
   registerStatsTools(server);
   registerSuppressionTools(server, { analyticsMode });
+  registerIpAccessTools(server, { analyticsMode });
 
   // --- Resources ---
   registerResources(server, { analyticsMode });
